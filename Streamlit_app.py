@@ -1,8 +1,6 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import pydeck as pdk
 import json
+import os
 from pdf_reader import *
 from answer_converter import *
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -12,7 +10,6 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.llms.ollama import Ollama
 from langchain_community.embeddings import GPT4AllEmbeddings
-from langchain_community.embeddings.ollama import OllamaEmbeddings
 from langchain_core.prompts import PromptTemplate
 
 
@@ -37,31 +34,33 @@ class Templates:
         Answer
         """
 
+class Labels:
+
+    invoice_reader_llama_info = "This is Invoice reader application. Please upload a file to get results."
+    chat_bot_ollama_info = "This is chatbot based on model llama3. You can ask a question to get the answer"
+    chat_bot_ollama_history_info = "This is chatbot based on model llama3. You can ask a question to get the answer."
+    chat_bot_ollama_history_info_exit = f'This is the Ollama local chat bot, if you want to clear conversation history, type \'exit\'.'
+
 def intro():
 
-    st.write("# Welcome to Streamlit! 👋")
-    st.sidebar.success("Select a demo above.")
+    st.write("# This is Gen AI Upskill program demo application!")
+    st.sidebar.success("Select a function above.")
 
     st.markdown(
         """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
 
-        **👈 Select a demo from the dropdown on the left** to see some examples
-        of what Streamlit can do!
+        This application has been created to help you analize invoice documents
+        You can select 4 specific functions that uses Gen AI.
 
-        ### Want to learn more?
+        **👈 Select a function from the dropdown on the left** and follow the instructions.
 
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
+        ### Bellow you can see description of specific functions
 
-        ### See more complex demos
+        - Ollama Documents - upload documents and use pre-defined buttons to get results
+        - Ollama Documents Custom - upload documents and ask your question to get answer
+        - Ollama Chatbot - this uses AI model to answer your questions, it does not keep the history
+        - Ollama Chatbot History - The chatbot that keep history of your conversation
 
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
     """
     )
 
@@ -140,7 +139,7 @@ def invoice_reader_llama():
     files: list = []
     document: str = ''
     with st.sidebar:
-        st.info(body="This is Invoice reader application. Please upload a file to get results.", icon=":material/description:")
+        st.info(body=Labels.invoice_reader_llama_info, icon=":material/description:")
         files = st.file_uploader(label="Upload files", type="pdf", accept_multiple_files=True)
     
     if len(files) != 0:
@@ -159,7 +158,6 @@ def invoice_reader_llama():
                 st.button(label="Invoice Delays", on_click=process_llama_model, args=['table', vector_store], use_container_width=True)
                 st.button(label="Invoice Details", on_click=process_llama_model, args=['old_invoice', vector_store], use_container_width=True)
                 st.button(label="Ordered Items", on_click=process_llama_model, args=['all_items', vector_store], use_container_width=True)
-                # st.button(label="Bar chart", on_click=process_llama_model, args=['chart', vector_store], use_container_width=True)
 
 def invoice_reader_openai():
 
@@ -215,7 +213,7 @@ def chat_bot_ollama():
     config: json = read_config()
     ollama = Ollama(base_url=config['local_host'], model='llama3.2')
     with st.sidebar:
-        st.info(body="This is normal chatbot based on model llama2. You can ask a question to get the answer", icon=":material/description:")
+        st.info(body=Labels.chat_bot_ollama_info, icon=":material/description:")
     user_question = st.text_input(label="Type your questions here")
     if user_question:
         result = ollama.invoke(user_question)
@@ -224,13 +222,13 @@ def chat_bot_ollama():
 def chat_bot_ollama_history():
 
     with st.sidebar:
-        st.info(body="This is normal chatbot based on model llama2. You can ask a question to get the answer", icon=":material/description:")
+        st.info(body=Labels.chat_bot_ollama_history_info, icon=":material/description:")
     config: json = read_config()
     ollama = Ollama(base_url=config['local_host'], model='llama3.2')
     prompt = get_prompt_template(templateName="chat")
     chain = prompt | ollama
-    st.write(f'This is the Ollama local chat bot, if you want to quit, type \'exit\'')
-    # user_question = st.chat_input("User: ")
+    st.info(Labels.chat_bot_ollama_history_info_exit, icon="ℹ️")
+ 
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -259,7 +257,10 @@ def chat_bot_ollama_history():
 
 def read_config():
     
-    with open ('C:/Users/Programming/Documents/Python/AI/Invoice_model/env.json', 'r') as file:
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    config_file_path = os.path.join(root_dir, "env.json")
+
+    with open (config_file_path, 'r') as file:
         config = json.load(file)
     return config
 
@@ -270,7 +271,7 @@ def process_llama_model(key: str, vector_store: FAISS):
     with open (config['questions'], 'r') as file:
         questions = json.load(file)
     question = questions[key]
-    print(f'User selected button with key: \n{key}, \nquestion: \n{question}')
+    print(f'User selected button \nKey: {key}, \nQuestion: {question}')
 
     if question:
         prompt = get_prompt_template(templateName="docs")
@@ -290,5 +291,5 @@ page_names_to_funcs = {
     "Ollama Chatbot History": chat_bot_ollama_history
 }
 
-demo_name = st.sidebar.selectbox("Choose an application", page_names_to_funcs.keys())
-page_names_to_funcs[demo_name]()
+application = st.sidebar.selectbox("Choose an application", page_names_to_funcs.keys())
+page_names_to_funcs[application]()
