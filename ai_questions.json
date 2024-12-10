@@ -1,6 +1,6 @@
 {
     "all_items": "Based on the loaded documents, provide the table of all ordered items. Show them in table format with the following columns: Item, Invoice number, Ordered Quantity.",
-    "old_invoice": "Show the invoice detail, provide details in table format with the following rows: Order Date, Document Identifier (as invoice number), Contact Person, Tax (as a VAT rate), Total Amount. If you dont have specific information, leave it blank.",
+    "get_invoice_details": "Show the invoice detail, provide details in table format with the following rows: Order Date, Document Identifier (as invoice number), Contact Person, Tax (as a VAT rate), Total Amount. If you dont have specific information, leave it blank.",
     "chart": "Get total amount values from attached invoices and present the data as pandas DataFrame, starts from data=.",
-    "table": "Avoid the prompt template and prepare the dictionary that includes invoice number as a key and order date in format dd-MM-yyyy as a value"
+    "get_date_details": "Avoid the prompt template and prepare the dictionary that includes invoice number as a key and order date in format dd-MM-yyyy as a value"
 }

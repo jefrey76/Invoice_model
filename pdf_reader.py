@@ -1,8 +1,6 @@
-from invoice2data import extract_data
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.document_loaders import TextLoader
 import pypdf
-
+import os
 
 def invoice_reader_pypdf(file):
 
@@ -12,12 +10,29 @@ def invoice_reader_pypdf(file):
         text += page.extract_text()
     return text
 
-def document_loader(files: list):
+def documents_loader(files):
     
-    documents: list = []
+    documents_path = os.path.expanduser("~/Documents")
+    documents = []
     for file in files:
-        print(dir(file))
-        loader = PyPDFLoader(file.name)
+
+        temp_file = os.path.join(documents_path, file.name)
+        with open(temp_file, "wb") as temp:
+            temp.write(file.read())
+        loader = PyPDFLoader(temp_file)
         loaded_file = loader.load()
+        print(loaded_file)
         documents.append(loaded_file)
+
     return documents
+
+def document_loader(file):
+
+    documents_path = os.path.expanduser("~/Documents")
+    temp_file = os.path.join(documents_path, file.name)
+    with open(temp_file, "wb") as temp:
+        temp.write(file.read())
+    loader = PyPDFLoader(temp_file)
+    loaded_file = loader.load()
+
+    return loaded_file

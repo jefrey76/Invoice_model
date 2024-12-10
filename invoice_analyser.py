@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import faiss
 from pdf_reader import *
 from answer_converter import *
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -8,14 +9,18 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain_community.chat_models import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.llms.ollama import Ollama
+from langchain_ollama import OllamaLLM
 from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
+from uuid import uuid4
+from langchain_community.docstore.in_memory import InMemoryDocstore
+
 
 
 class Templates:
 
-    templateForDocs = """Answer the question based on the provided invoices. Try to avoid adding introduction and explaining the answer, focus only on exact answer.
+    template_for_docs = """Answer the question based on the provided invoices. Try to avoid adding introduction and explaining the answer, focus only on exact answer.
         If you will be asked about the table format, provide only table.
 
         Invoices: {documents}
@@ -24,7 +29,20 @@ class Templates:
 
         Answer: """
 
-    templateForChat = """Answer the question below.
+
+    template_for_docs_invoice = """Answer the question based on the provided invoices. Try to avoid adding introduction and explaining the answer, focus only on exact answer. 
+        Attached documents are invoices type and each of them should contains common fields like: Customer, 
+        Items, Quantity, Tax Rate, Total Amount, Order Date. Focus on these fields while analyzing document. To determine how many documents have been 
+        implemented, try to recognize invoice numbers. Use the table format while answering.
+
+        Invoices: {documents}
+
+        Question: {query}
+
+        Answer: """
+
+
+    template_for_chat = """Answer the question below.
 
         Here is the conversation history: {context}.
         If you can't find the answer based on the history, use your data to provide the details.
@@ -33,6 +51,7 @@ class Templates:
 
         Answer
         """
+    
 
 class Labels:
 
@@ -67,22 +86,43 @@ def intro():
 def get_prompt_template(templateName: str)->PromptTemplate:
 
     if templateName == "docs":
-        template = Templates.templateForDocs
+        template = Templates.template_for_docs
     elif templateName == "chat":
-        template = Templates.templateForChat
+        template = Templates.template_for_chat
+    elif templateName == "docs_invoice": 
+        template = Templates.template_for_docs_invoice
     
     prompt_template = PromptTemplate.from_template(template)
     return prompt_template
 
-def get_llm()->Ollama:
+def get_llm()->OllamaLLM:
 
     config: json = read_config()
-    ollama = Ollama(
+    ollama = OllamaLLM(
         base_url=config['local_host'], 
         model=config['model'],
         temperature=config['temperature']
         )
     return ollama
+
+def get_vector_store()->FAISS:
+
+    embeddings = GPT4AllEmbeddings()
+    index = faiss.IndexFlatL2(len(embeddings.embed_query("Initial text")))
+
+    vector_store = FAISS(
+        embedding_function=embeddings,
+        index=index,
+        docstore=InMemoryDocstore(),
+        index_to_docstore_id={}
+    )
+
+    return vector_store
+
+def add_doc_to_vector_store(vector_store: FAISS, document: Document):
+
+    uuids = [str(uuid4()) for _ in range(len(document))]
+    vector_store.add_documents(documents=document, ids=uuids)
 
 def get_splitter()->RecursiveCharacterTextSplitter:
     
@@ -98,8 +138,8 @@ def get_splitter()->RecursiveCharacterTextSplitter:
 def get_data_transformer_function(func_key: str, ai_response: str):
 
     function_dict = {
-        "table": prepare_table,
-        "old_invoice": get_oldest_invoice,
+        "get_date_details": get_date_details,
+        "get_invoice_details": get_invoice_details,
         "all_items": get_all_items,
         "chart": prepare_bar_chart
         }
@@ -108,24 +148,29 @@ def get_data_transformer_function(func_key: str, ai_response: str):
 def invoice_reader_llama_manual():
 
     files: list = []
-    document: str = ''
+    # document: str = ''
+    vector_store = get_vector_store()
     with st.sidebar:
         st.info(body="This is Invoice reader application. Please upload a file to get results.", icon=":material/description:")
         files = st.file_uploader(label="Upload files", type="pdf", accept_multiple_files=True)
     
     if len(files) != 0:
         for file in files:
-            document += invoice_reader_pypdf(file=file)
+            # document += invoice_reader_pypdf(file=file)
+            document = document_loader(file)
+            uuids = [str(uuid4()) for _ in range(len(document))]
+            vector_store.add_documents(documents=document, ids=uuids)
 
-        text_splitter = get_splitter()
-        chunks = text_splitter.split_text(document)
-        embeddings=GPT4AllEmbeddings()
-        # embeddings = OllamaEmbeddings(model="llama3")
-        vector_store = FAISS.from_texts(texts=chunks, embedding=embeddings)
+        #-------------------------------------------------------------------------
+        # text_splitter = get_splitter()
+        # chunks = text_splitter.split_text(document)
+        # embeddings=GPT4AllEmbeddings()
+        # vector_store = FAISS.from_texts(texts=chunks, embedding=embeddings)
+        #-------------------------------------------------------------------------
 
         user_question = st.text_input("Type your question here...")
         if user_question:
-            prompt = get_prompt_template(templateName="docs")
+            prompt = get_prompt_template(templateName="docs_invoice")
             ollama = get_llm()
             match = vector_store.similarity_search(query=user_question, k=4)
             print(match)
@@ -155,8 +200,8 @@ def invoice_reader_llama():
         # Predefined buttons
         with st.sidebar:
             with st.container(border=True):
-                st.button(label="Invoice Delays", on_click=process_llama_model, args=['table', vector_store], use_container_width=True)
-                st.button(label="Invoice Details", on_click=process_llama_model, args=['old_invoice', vector_store], use_container_width=True)
+                st.button(label="Invoice Delays", on_click=process_llama_model, args=['get_date_details', vector_store], use_container_width=True)
+                st.button(label="Invoice Details", on_click=process_llama_model, args=['get_invoice_details', vector_store], use_container_width=True)
                 st.button(label="Ordered Items", on_click=process_llama_model, args=['all_items', vector_store], use_container_width=True)
 
 def invoice_reader_openai():
@@ -200,7 +245,7 @@ def invoice_reader_openai():
                 openai_api_key = config["open_ai_api_key"],
                 temperature = 0,
                 max_tokens = 1000,
-                model_name = "babbage-002"
+                model_name = "open_ai"
             )
 
             #output results
@@ -211,7 +256,7 @@ def invoice_reader_openai():
 def chat_bot_ollama():
 
     config: json = read_config()
-    ollama = Ollama(base_url=config['local_host'], model='llama3.2')
+    ollama = OllamaLLM(base_url=config['local_host'], model='llama3.2')
     with st.sidebar:
         st.info(body=Labels.chat_bot_ollama_info, icon=":material/description:")
     user_question = st.text_input(label="Type your questions here")
@@ -224,7 +269,7 @@ def chat_bot_ollama_history():
     with st.sidebar:
         st.info(body=Labels.chat_bot_ollama_history_info, icon=":material/description:")
     config: json = read_config()
-    ollama = Ollama(base_url=config['local_host'], model='llama3.2')
+    ollama = OllamaLLM(base_url=config['local_host'], model='llama3.2')
     prompt = get_prompt_template(templateName="chat")
     chain = prompt | ollama
     st.info(Labels.chat_bot_ollama_history_info_exit, icon="ℹ️")
@@ -266,9 +311,10 @@ def read_config():
 
 def process_llama_model(key: str, vector_store: FAISS):
 
-    ollama: Ollama
+    ollama: OllamaLLM
     config = read_config()
-    with open (config['questions'], 'r') as file:
+    questions_config = os.path.join(os.path.dirname(os.path.abspath(__file__)), config['questions'])
+    with open (questions_config, 'r') as file:
         questions = json.load(file)
     question = questions[key]
     print(f'User selected button \nKey: {key}, \nQuestion: {question}')
