@@ -60,6 +60,7 @@ class Labels:
     chat_bot_ollama_history_info = "This is chatbot based on model llama3. You can ask a question to get the answer."
     chat_bot_ollama_history_info_exit = f'This is the Ollama local chat bot, if you want to clear conversation history, type \'exit\'.'
 
+
 def intro():
 
     st.write("# This is Gen AI Upskill program demo application!")
@@ -83,6 +84,7 @@ def intro():
     """
     )
 
+
 def get_prompt_template(templateName: str)->PromptTemplate:
 
     if templateName == "docs":
@@ -95,6 +97,7 @@ def get_prompt_template(templateName: str)->PromptTemplate:
     prompt_template = PromptTemplate.from_template(template)
     return prompt_template
 
+
 def get_llm()->OllamaLLM:
 
     config: json = read_config()
@@ -104,6 +107,7 @@ def get_llm()->OllamaLLM:
         temperature=config['temperature']
         )
     return ollama
+
 
 def get_vector_store()->FAISS:
 
@@ -119,10 +123,6 @@ def get_vector_store()->FAISS:
 
     return vector_store
 
-def add_doc_to_vector_store(vector_store: FAISS, document: Document):
-
-    uuids = [str(uuid4()) for _ in range(len(document))]
-    vector_store.add_documents(documents=document, ids=uuids)
 
 def get_splitter()->RecursiveCharacterTextSplitter:
     
@@ -135,15 +135,15 @@ def get_splitter()->RecursiveCharacterTextSplitter:
     )
     return text_splitter
 
-def get_data_transformer_function(func_key: str, ai_response: str):
+# def get_data_transformer_function(func_key: str, ai_response: str):
 
-    function_dict = {
-        "get_date_details": get_date_details,
-        "get_invoice_details": get_invoice_details,
-        "all_items": get_all_items,
-        "chart": prepare_bar_chart
-        }
-    function_dict[func_key](ai_response)
+#     function_dict = {
+#         "get_date_details": get_date_details,
+#         "get_invoice_details": get_invoice_details,
+#         "all_items": get_all_items,
+#         "chart": prepare_bar_chart
+#         }
+#     function_dict[func_key](ai_response)
 
 def invoice_reader_llama_manual():
 
@@ -179,6 +179,7 @@ def invoice_reader_llama_manual():
             response = chain.invoke({"query": user_question, "documents": match })
             st.write(response)
 
+
 def invoice_reader_llama():
 
     files: list = []
@@ -203,6 +204,7 @@ def invoice_reader_llama():
                 st.button(label="Invoice Delays", on_click=process_llama_model, args=['get_date_details', vector_store], use_container_width=True)
                 st.button(label="Invoice Details", on_click=process_llama_model, args=['get_invoice_details', vector_store], use_container_width=True)
                 st.button(label="Ordered Items", on_click=process_llama_model, args=['all_items', vector_store], use_container_width=True)
+
 
 def invoice_reader_openai():
 
@@ -253,6 +255,7 @@ def invoice_reader_openai():
             response = chain.run(input_documents = match, question = user_question)
             st.write(response)
 
+
 def chat_bot_ollama():
 
     config: json = read_config()
@@ -263,6 +266,7 @@ def chat_bot_ollama():
     if user_question:
         result = ollama.invoke(user_question)
         st.write(result)
+
 
 def chat_bot_ollama_history():
 
@@ -300,6 +304,7 @@ def chat_bot_ollama_history():
             st.session_state.messages.append({"role": "assistant", "content": result})
             print(str(st.session_state.messages))
 
+
 def read_config():
     
     root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -308,6 +313,7 @@ def read_config():
     with open (config_file_path, 'r') as file:
         config = json.load(file)
     return config
+
 
 def process_llama_model(key: str, vector_store: FAISS):
 
@@ -325,6 +331,7 @@ def process_llama_model(key: str, vector_store: FAISS):
         match = vector_store.similarity_search(query=question, k=6)
         chain = prompt | ollama
         response = chain.invoke({"query": question, "documents": match })
+        print(f'\nData extracted by AI: \n{response}\n')
         #execute function to manipulate the data
         get_data_transformer_function(func_key=key, ai_response=response)
 
@@ -338,4 +345,5 @@ page_names_to_funcs = {
 }
 
 application = st.sidebar.selectbox("Choose an application", page_names_to_funcs.keys())
+
 page_names_to_funcs[application]()
