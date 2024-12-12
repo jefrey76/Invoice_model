@@ -49,7 +49,7 @@ class Templates:
 
         Question: {question}
 
-        Answer
+        Answer:
         """
     
 
@@ -95,6 +95,7 @@ def get_prompt_template(templateName: str)->PromptTemplate:
         template = Templates.template_for_docs_invoice
     
     prompt_template = PromptTemplate.from_template(template)
+    print(f'Prompt template set as:\n{template}')
     return prompt_template
 
 
@@ -135,20 +136,10 @@ def get_splitter()->RecursiveCharacterTextSplitter:
     )
     return text_splitter
 
-# def get_data_transformer_function(func_key: str, ai_response: str):
-
-#     function_dict = {
-#         "get_date_details": get_date_details,
-#         "get_invoice_details": get_invoice_details,
-#         "all_items": get_all_items,
-#         "chart": prepare_bar_chart
-#         }
-#     function_dict[func_key](ai_response)
 
 def invoice_reader_llama_manual():
 
     files: list = []
-    # document: str = ''
     vector_store = get_vector_store()
     with st.sidebar:
         st.info(body="This is Invoice reader application. Please upload a file to get results.", icon=":material/description:")
@@ -201,7 +192,7 @@ def invoice_reader_llama():
         # Predefined buttons
         with st.sidebar:
             with st.container(border=True):
-                st.button(label="Invoice Delays", on_click=process_llama_model, args=['get_date_details', vector_store], use_container_width=True)
+                st.button(label="Invoice Overdue", on_click=process_llama_model, args=['get_date_details', vector_store], use_container_width=True)
                 st.button(label="Invoice Details", on_click=process_llama_model, args=['get_invoice_details', vector_store], use_container_width=True)
                 st.button(label="Ordered Items", on_click=process_llama_model, args=['all_items', vector_store], use_container_width=True)
 

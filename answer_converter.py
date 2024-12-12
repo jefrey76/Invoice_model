@@ -51,7 +51,7 @@ def get_date_details(data: str):
             column_config={
                 "invoice": "Invoice Id",
                 "date": "Order Date",
-                "delay": "Delay (days)"
+                "delay": "Overdue (days)"
             },
             hide_index = True
         )
