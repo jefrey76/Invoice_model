@@ -97,5 +97,5 @@ def prepare_bar_chart(data: str):
 def configure_parameters_label()->st:
 
     config = read_config()
-    label_string = f'Model: {config['model']}\nTemperature: {config['temperature']}\nChunk size: {config['chunk_size']}\nOverlap: {config['chunk_overlap']}'
+    label_string = f'Model: {config["model"]}\nTemperature: {config["temperature"]}\nChunk size: {config["chunk_size"]}\nOverlap: {config["chunk_overlap"]}'
     return label_string
