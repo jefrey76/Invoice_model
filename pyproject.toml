@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "invoice_model"
+name = "invoices"
 version = "0.1.0"
 description = "This project based on llama model and provide some functions to read pdf documents"
 authors = ["Your Name <you@example.com>"]
